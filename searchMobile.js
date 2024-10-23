@@ -1,43 +1,46 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+const puppeteer = require('puppeteer');
 
-// Function to scrape Mobile.de
-const searchMobileDe = async () => {
+const searchEncar = async () => {
   try {
-    // Replace with dynamic query params if needed
-    const url = `https://car.encar.com/list/car?page=1&search=%7B%22type%22%3A%22car%22%2C%22action%22%3A%22%28And.Hidden.N._.Service.EncarMeetgo._.%28C.CarType.N._.%28C.Manufacturer.%EC%95%84%EC%9A%B0%EB%94%94._.%28C.ModelGroup.A6._.Model.A6+%28C8_%29.%29%29%29%29%22%2C%22title%22%3A%22%EC%95%84%EC%9A%B0%EB%94%94+A6+%28C8%29%2819%EB%85%84%7E%ED%98%84%EC%9E%AC%29%22%2C%22toggle%22%3A%7B%7D%2C%22layer%22%3A%22%22%2C%22sort%22%3A%22MobilePriceAsc%22%7D`; 
-    
-    const { data } = await axios.get(url);
-    const $ = cheerio.load(data);
-    
-    let results = [];
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
 
-
-    $('.ItemBigImage_item__6bPnX').each((i, elem) => {
-      const title = $(elem).find('.ItemBigImage_name__h0biK').text().trim();
-      const price = $(elem).find('.ItemBigImage_num__Fu15_').text().trim();
-      const link = $(elem).find('a').attr('href');
-
-      const carInfo = $(elem).find('.ItemBigImage_info__YMI5y li').map((index, el) => $(el).text()).get(); // Gets list of car details (year, km, fuel type, etc.)
-
-      results.push({
-        title,
-        price: `${price}만원`,  // Adding the currency symbol (Korean Won - ₩)
-        details: carInfo,
-        link: link ? link : null  // Add full link if available
-      });
+    // Navigate to the Encar search page
+    await page.goto('https://car.encar.com/list/car?page=1&search=%7B%22type%22%3A%22car%22%2C%22action%22%3A%22%28And.Hidden.N._.Service.EncarMeetgo._.%28C.CarType.N._.%28C.Manufacturer.%EC%95%84%EC%9A%B0%EB%94%94._.%28C.ModelGroup.A6._.Model.A6+%28C8_%29.%29%29%29%29%22%2C%22title%22%3A%22%EC%95%84%EC%9A%B0%EB%94%94+A6+%28C8%29%2819%EB%85%84%7E%ED%98%84%EC%9E%AC%29%22%2C%22toggle%22%3A%7B%7D%2C%22layer%22%3A%22%22%2C%22sort%22%3A%22MobilePriceAsc%22%7D', {
+      waitUntil: 'networkidle2'  // Wait until the network is idle (page fully loaded)
     });
 
-    // Display the results in the terminal
-    console.log('Results:', results);
-    
-    return results;
+    // Wait for the car listings to load
+    await page.waitForSelector('.ItemBigImage_item__6bPnX');
 
+    // Scraping data from the page
+    const results = await page.evaluate(() => {
+      let listings = [];
+      document.querySelectorAll('.ItemBigImage_item__6bPnX').forEach(elem => {
+        const title = elem.querySelector('.ItemBigImage_name__h0biK')?.innerText || '';
+        const price = elem.querySelector('.ItemBigImage_num__Fu15_')?.innerText || '';
+        const link = elem.querySelector('a')?.getAttribute('href') || '';
+        const details = Array.from(elem.querySelectorAll('.ItemBigImage_info__YMI5y li')).map(el => el.innerText);
+        
+        listings.push({
+          title: title.trim(),
+          price: price.trim(),
+          details,
+          link: link ? `https://www.encar.com${link}` : null,
+        });
+      });
+      return listings;
+    });
+
+    console.log('Results:', results);
+
+    await browser.close();
+
+    return results;
   } catch (error) {
-    console.error('Error fetching from Mobile.de:', error);
-    return [];
+    console.error('Error scraping Encar:', error.message);
   }
 };
 
-// Call the function to trigger scraping and display the results
-searchMobileDe();
+// Run the Puppeteer scraper
+searchEncar();
