@@ -22,7 +22,6 @@ const searchEncar = async () => {
     });
 
     await page.waitForSelector('.ItemBigImage_item__6bPnX', { timeout: 60000 });
-    await page.waitForTimeout(5000); // Wait for 5 seconds to ensure all elements are loaded
 
     const results = await page.evaluate(() => {
       let listings = [];
@@ -36,7 +35,7 @@ const searchEncar = async () => {
           title: title.trim(),
           price: price.trim(),
           details,
-          link: link ? `https://www.encar.com${link}` : null,
+          link: link ? `${link}` : null,
         });
       });
       return listings;
